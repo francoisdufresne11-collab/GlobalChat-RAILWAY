@@ -4,8 +4,8 @@ const multer = require('multer');
 const axios = require('axios');
 const FormData = require('form-data');
 const fs = require('fs');
-const cors = require('cors');
 const path = require('path');
+const cors = require('cors');
 
 const app = express();
 app.use(cors());
@@ -30,9 +30,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         });
         
         fs.unlinkSync(req.file.path);
-        let url = response.data.trim();
-        if (!url.startsWith('http')) url = 'https://' + url;
-        res.json({ url: url });
+        res.json({ url: response.data.trim() });
     } catch (error) {
         res.status(500).json({ error: "Erreur serveur" });
     }
