@@ -3,16 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Chat Live</title>
+    <title>Global Chat - Historique & Progress</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
         #status { padding: 10px; font-weight: bold; }
         #messages { flex: 1; width: 90%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #161b33; border-radius: 8px; }
-        .controls { width: 90%; max-width: 800px; display: flex; gap: 10px; padding: 15px; background: #141935; border-radius: 8px; margin-bottom: 10px; }
+        .controls { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 10px; padding: 15px; background: #141935; border-radius: 8px; margin-bottom: 10px; }
+        .input-group { display: flex; gap: 10px; }
         input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; outline: none; }
         button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
+        
+        /* Barre de progression */
+        #progressContainer { width: 100%; background: #1e2542; border-radius: 5px; display: none; height: 10px; overflow: hidden; }
+        #progressBar { width: 0%; height: 100%; background: #00ff00; transition: width 0.2s; }
+
         .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
-        /* Style pour que les images et vidéos s'affichent bien dans le chat */
         img, video { max-width: 100%; height: auto; border-radius: 5px; margin-top: 10px; display: block; }
     </style>
 </head>
@@ -22,22 +27,37 @@
     <div id="messages"></div>
 
     <div class="controls">
-        <input type="text" id="messageInput" placeholder="Message...">
-        <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
-        <button onclick="document.getElementById('fileInput').click()">📷/🎥</button>
-        <button onclick="sendMessage()">Envoyer</button>
+        <div id="progressContainer"><div id="progressBar"></div></div>
+        <div class="input-group">
+            <input type="text" id="messageInput" placeholder="Message...">
+            <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
+            <button onclick="document.getElementById('fileInput').click()">📷/🎥</button>
+            <button onclick="sendMessage()">Envoyer</button>
+        </div>
     </div>
 
     <script>
         const socket = new WebSocket('wss://globalchat-railway.onrender.com');
         const statusDiv = document.getElementById('status');
         const messagesDiv = document.getElementById('messages');
+        const progressBar = document.getElementById('progressBar');
+        const progressContainer = document.getElementById('progressContainer');
 
         socket.onopen = () => { statusDiv.innerHTML = "Connecté 🟢"; statusDiv.style.color = "#00ff00"; };
-        socket.onclose = () => { statusDiv.innerHTML = "Déconnecté 🔴"; statusDiv.style.color = "#ff4444"; setTimeout(() => location.reload(), 3000); };
+        socket.onclose = () => { statusDiv.innerHTML = "Déconnecté 🔴"; setTimeout(() => location.reload(), 3000); };
 
         socket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            const msgData = JSON.parse(event.data);
+            
+            // Si on reçoit l'historique
+            if (msgData.type === 'history') {
+                msgData.data.forEach(m => displayMessage(m));
+            } else {
+                displayMessage(msgData);
+            }
+        };
+
+        function displayMessage(data) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg';
             
@@ -45,18 +65,15 @@
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 const url = data.url.toLowerCase();
-                // Si c'est une image (jpg, png, gif...), on utilise la balise <img>
                 if (url.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
                     msgDiv.innerHTML = `<img src="${data.url}">`;
-                } 
-                // Si c'est une vidéo (mp4, webm...), on utilise la balise <video>
-                else if (url.match(/\.(mp4|webm|mov)$/)) {
+                } else if (url.match(/\.(mp4|webm|mov)$/)) {
                     msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        };
+        }
 
         function sendMessage() {
             const input = document.getElementById('messageInput');
@@ -66,20 +83,37 @@
             }
         }
 
-        document.getElementById('fileInput').onchange = async function() {
+        document.getElementById('fileInput').onchange = function() {
             const file = this.files[0];
             if (!file) return;
-            statusDiv.innerHTML = "Envoi... ⏳";
+
+            progressContainer.style.display = "block";
             const formData = new FormData();
             formData.append('file', file);
-            try {
-                const res = await fetch('/upload', { method: 'POST', body: formData });
-                const json = await res.json();
-                if (json.url) {
-                    socket.send(JSON.stringify({ type: 'media', url: json.url }));
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', '/upload', true);
+
+            // MISE À JOUR BARRE DE PROGRESSION
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percent + '%';
                 }
-                statusDiv.innerHTML = "Connecté 🟢";
-            } catch (e) { statusDiv.innerHTML = "Erreur ❌"; }
+            };
+
+            xhr.onload = function() {
+                if (xhr.status === 200) {
+                    const res = JSON.parse(xhr.responseText);
+                    socket.send(JSON.stringify({ type: 'media', url: res.url }));
+                }
+                setTimeout(() => {
+                    progressContainer.style.display = "none";
+                    progressBar.style.width = "0%";
+                }, 1000);
+            };
+
+            xhr.send(formData);
         };
     </script>
 </body>
