@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Chat - Final</title>
+    <title>Global Chat - Ultra Media</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
         #status { padding: 10px; font-weight: bold; }
@@ -16,6 +16,7 @@
         #progressBar { width: 0%; height: 100%; background: #00ff00; transition: width 0.1s; }
         .msg { margin-bottom: 15px; padding: 12px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
         img, video { max-width: 100%; height: auto; border-radius: 8px; margin-top: 10px; display: block; background: #000; }
+        .dl-link { display: inline-block; margin-top: 10px; color: #00d4ff; text-decoration: none; font-size: 0.9em; border: 1px solid #00d4ff; padding: 5px 10px; border-radius: 4px; }
     </style>
 </head>
 <body>
@@ -24,9 +25,9 @@
     <div class="controls">
         <div id="progressContainer"><div id="progressBar"></div></div>
         <div class="input-group">
-            <input type="text" id="messageInput" placeholder="Votre message...">
-            <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
-            <button onclick="document.getElementById('fileInput').click()">📷/🎥</button>
+            <input type="text" id="messageInput" placeholder="Message...">
+            <input type="file" id="fileInput" style="display:none" accept="image/*,video/*,audio/*,.mkv,.mov,.avi">
+            <button onclick="document.getElementById('fileInput').click()">📁</button>
             <button onclick="sendMessage()">Envoyer</button>
         </div>
     </div>
@@ -38,7 +39,7 @@
         const progressBar = document.getElementById('progressBar');
         const progressContainer = document.getElementById('progressContainer');
 
-        socket.onopen = () => { statusDiv.innerHTML = "Connecté 🟢"; statusDiv.style.color = "#00ff00"; };
+        socket.onopen = () => { statusDiv.innerHTML = "Connecté 🟢"; };
         socket.onclose = () => { statusDiv.innerHTML = "Déconnecté 🔴"; setTimeout(() => location.reload(), 3000); };
 
         socket.onmessage = (event) => {
@@ -58,11 +59,22 @@
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 const url = data.url.toLowerCase();
-                // DÉTECTION VIDÉO AMÉLIORÉE
-                if (url.match(/\.(mp4|webm|mov|ogg)$/)) {
-                    msgDiv.innerHTML = `<video controls playsinline preload="metadata" src="${data.url}" onloadeddata="scrollToBottom()"></video>`;
-                } else {
-                    msgDiv.innerHTML = `<img src="${data.url}" onload="scrollToBottom()">`;
+                const fileName = data.name || "Fichier";
+                
+                // 1. Vidéos
+                if (url.match(/\.(mp4|webm|mov|ogg|mkv|avi)$/)) {
+                    msgDiv.innerHTML = `<video controls playsinline preload="metadata" src="${data.url}"></video>
+                                        <a class="dl-link" href="${data.url}" target="_blank">📥 Télécharger Vidéo</a>`;
+                } 
+                // 2. Images
+                else if (url.match(/\.(jpg|jpeg|png|gif|webp|bmp|svg)$/)) {
+                    msgDiv.innerHTML = `<img src="${data.url}" onload="scrollToBottom()">
+                                        <a class="dl-link" href="${data.url}" target="_blank">📥 Voir en grand</a>`;
+                }
+                // 3. Audio
+                else if (url.match(/\.(mp3|wav|ogg|m4a)$/)) {
+                    msgDiv.innerHTML = `<audio controls src="${data.url}"></audio>
+                                        <a class="dl-link" href="${data.url}" target="_blank">📥 Télécharger Audio</a>`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
@@ -95,7 +107,7 @@
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     const res = JSON.parse(xhr.responseText);
-                    socket.send(JSON.stringify({ type: 'media', url: res.url }));
+                    socket.send(JSON.stringify({ type: 'media', url: res.url, name: file.name }));
                 }
                 setTimeout(() => { progressContainer.style.display = "none"; progressBar.style.width = "0%"; }, 1000);
             };
