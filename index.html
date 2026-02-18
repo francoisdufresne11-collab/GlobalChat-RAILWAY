@@ -3,28 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Chat Live - Render</title>
+    <title>Global Chat Live</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
-        #status { padding: 10px; font-weight: bold; font-size: 1.1em; }
+        #status { padding: 10px; font-weight: bold; }
         #messages { flex: 1; width: 90%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #161b33; border-radius: 8px; }
         .controls { width: 90%; max-width: 800px; display: flex; gap: 10px; padding: 15px; background: #141935; border-radius: 8px; margin-bottom: 10px; }
         input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; outline: none; }
         button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
-        .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; word-wrap: break-word; }
-        img { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; border: 1px solid #444; }
-        video { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; background: black; }
+        .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
+        /* Style pour que les images et vidéos s'affichent bien dans le chat */
+        img, video { max-width: 100%; height: auto; border-radius: 5px; margin-top: 10px; display: block; }
     </style>
 </head>
 <body>
 
-    <div id="status">Initialisation... ⚪</div>
+    <div id="status">Connexion... ⚪</div>
     <div id="messages"></div>
 
     <div class="controls">
-        <input type="text" id="messageInput" placeholder="Écrivez un message...">
+        <input type="text" id="messageInput" placeholder="Message...">
         <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
-        <button onclick="document.getElementById('fileInput').click()">📷 / 🎥</button>
+        <button onclick="document.getElementById('fileInput').click()">📷/🎥</button>
         <button onclick="sendMessage()">Envoyer</button>
     </div>
 
@@ -33,16 +33,8 @@
         const statusDiv = document.getElementById('status');
         const messagesDiv = document.getElementById('messages');
 
-        socket.onopen = () => {
-            statusDiv.innerHTML = "Connecté 🟢";
-            statusDiv.style.color = "#00ff00";
-        };
-
-        socket.onclose = () => {
-            statusDiv.innerHTML = "Déconnecté 🔴";
-            statusDiv.style.color = "#ff4444";
-            setTimeout(() => location.reload(), 3000); 
-        };
+        socket.onopen = () => { statusDiv.innerHTML = "Connecté 🟢"; statusDiv.style.color = "#00ff00"; };
+        socket.onclose = () => { statusDiv.innerHTML = "Déconnecté 🔴"; statusDiv.style.color = "#ff4444"; setTimeout(() => location.reload(), 3000); };
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -53,13 +45,13 @@
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 const url = data.url.toLowerCase();
-                // DÉTECTION AMÉLIORÉE : Image ou Vidéo ?
-                if (url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/)) {
-                    msgDiv.innerHTML = `<img src="${data.url}" alt="Image">`;
-                } else if (url.match(/\.(mp4|webm|ogg|mov)$/)) {
+                // Si c'est une image (jpg, png, gif...), on utilise la balise <img>
+                if (url.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
+                    msgDiv.innerHTML = `<img src="${data.url}">`;
+                } 
+                // Si c'est une vidéo (mp4, webm...), on utilise la balise <video>
+                else if (url.match(/\.(mp4|webm|mov)$/)) {
                     msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
-                } else {
-                    msgDiv.innerHTML = `<a href="${data.url}" target="_blank" style="color:#00d4ff">Fichier envoyé : ${data.url}</a>`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
@@ -77,7 +69,7 @@
         document.getElementById('fileInput').onchange = async function() {
             const file = this.files[0];
             if (!file) return;
-            statusDiv.innerHTML = "Envoi en cours... ⏳";
+            statusDiv.innerHTML = "Envoi... ⏳";
             const formData = new FormData();
             formData.append('file', file);
             try {
@@ -87,14 +79,8 @@
                     socket.send(JSON.stringify({ type: 'media', url: json.url }));
                 }
                 statusDiv.innerHTML = "Connecté 🟢";
-            } catch (e) {
-                statusDiv.innerHTML = "Erreur upload ❌";
-            }
+            } catch (e) { statusDiv.innerHTML = "Erreur ❌"; }
         };
-
-        document.getElementById('messageInput').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendMessage();
-        });
     </script>
 </body>
 </html>
