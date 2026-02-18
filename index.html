@@ -2,33 +2,34 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Mon Global Chat - Render</title>
+    <title>Global Chat - Render Live</title>
     <style>
-        body { font-family: sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; }
-        #status { padding: 10px; font-weight: bold; }
-        #messages { flex: 1; width: 95%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 10px; height: 400px; background: #161b33; }
-        .controls { width: 95%; max-width: 800px; display: flex; gap: 10px; padding: 20px; background: #141935; border-radius: 8px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; }
-        button { padding: 10px 20px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; }
-        .msg { margin-bottom: 15px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
-        img, video { max-width: 100%; border-radius: 5px; margin-top: 10px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
+        #status { padding: 15px; font-weight: bold; font-size: 1.2em; transition: 0.3s; }
+        #messages { flex: 1; width: 90%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #161b33; border-radius: 10px; box-shadow: 0 0 15px rgba(0, 212, 255, 0.2); }
+        .controls { width: 90%; max-width: 800px; display: flex; gap: 10px; padding: 20px; background: #141935; border-radius: 0 0 10px 10px; margin-bottom: 20px; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: 1px solid #1e2542; background: #1e2542; color: white; outline: none; }
+        button { padding: 10px 20px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; transition: 0.2s; }
+        button:hover { background: #008fb3; }
+        .msg { margin-bottom: 15px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; animation: fadeIn 0.3s ease; }
+        img, video { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-    <div id="status">Connexion en cours... ⚪</div>
+    <div id="status">Initialisation... ⚪</div>
     <div id="messages"></div>
 
     <div class="controls">
-        <input type="text" id="messageInput" placeholder="Écrivez un message...">
-        <input type="file" id="fileInput" style="display:none">
-        <button onclick="document.getElementById('fileInput').click()">📷</button>
-        <button onclick="sendMessage()">Envoyer</button>
+        <input type="text" id="messageInput" placeholder="Écrivez un message ici...">
+        <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
+        <button onclick="document.getElementById('fileInput').click()">📷 / 🎥</button>
+        <button onclick="sendMessage()">ENVOYER</button>
     </div>
 
     <script>
-        // CONNEXION AU SERVEUR RENDER
-        // On utilise wss:// pour une connexion sécurisée obligatoire sur Render
+        // L'ADRESSE MAGIQUE POUR RENDER (wss:// obligatoire)
         const socket = new WebSocket('wss://globalchat-railway.onrender.com');
         const statusDiv = document.getElementById('status');
         const messagesDiv = document.getElementById('messages');
@@ -36,13 +37,13 @@
         socket.onopen = () => {
             statusDiv.innerHTML = "Connecté 🟢";
             statusDiv.style.color = "#00ff00";
+            console.log("Connecté au serveur Render !");
         };
 
         socket.onclose = () => {
-            statusDiv.innerHTML = "Déconnecté 🔴 (Tentative de reconexion...)";
-            statusDiv.style.color = "#ff0000";
-            // Tentative de reconnexion automatique après 3 secondes
-            setTimeout(() => location.reload(), 3000);
+            statusDiv.innerHTML = "Déconnecté 🔴 (Reconnexion...)";
+            statusDiv.style.color = "#ff4444";
+            setTimeout(() => location.reload(), 3000); // Relance la page après 3s
         };
 
         socket.onmessage = (event) => {
@@ -53,7 +54,7 @@
             if (data.type === 'text') {
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
-                if (data.url.match(/\.(jpg|jpeg|png|gif)$/i)) {
+                if (data.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
                     msgDiv.innerHTML = `<img src="${data.url}" alt="Image">`;
                 } else {
                     msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
@@ -71,11 +72,12 @@
             }
         }
 
+        // Gestion de l'envoi d'images/vidéos
         document.getElementById('fileInput').onchange = async function() {
             const file = this.files[0];
             if (!file) return;
 
-            statusDiv.innerHTML = "Envoi du fichier... ⏳";
+            statusDiv.innerHTML = "Téléchargement... ⏳";
             const formData = new FormData();
             formData.append('file', file);
 
@@ -87,10 +89,15 @@
                     statusDiv.innerHTML = "Connecté 🟢";
                 }
             } catch (e) {
-                alert("Erreur lors de l'envoi");
+                alert("Erreur d'envoi vers Catbox");
                 statusDiv.innerHTML = "Connecté 🟢";
             }
         };
+
+        // Permet d'envoyer avec la touche Entrée
+        document.getElementById('messageInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage();
+        });
     </script>
 </body>
 </html>
