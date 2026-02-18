@@ -33,7 +33,6 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         });
         
         fs.unlinkSync(req.file.path);
-        // On renvoie l'URL directe du fichier
         res.json({ url: response.data.trim() });
     } catch (error) {
         res.status(500).json({ error: "Erreur serveur" });
@@ -48,17 +47,14 @@ const server = app.listen(port, '0.0.0.0', () => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-    // Envoyer l'historique au format JSON propre
+    // Envoi de l'historique complet dès la connexion
     ws.send(JSON.stringify({ type: 'history', data: history }));
 
     ws.on('message', (data) => {
         const message = JSON.parse(data.toString());
-        
-        // Sauvegarde dans l'historique
         history.push(message);
         if (history.length > 50) history.shift();
 
-        // Diffusion en temps réel
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(message));
