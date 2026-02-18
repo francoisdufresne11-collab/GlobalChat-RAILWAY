@@ -12,15 +12,20 @@
         .input-group { display: flex; gap: 10px; }
         input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; outline: none; }
         button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
+        
+        /* Barre de progression */
         #progressContainer { width: 100%; background: #1e2542; border-radius: 5px; display: none; height: 10px; overflow: hidden; }
         #progressBar { width: 0%; height: 100%; background: #00ff00; transition: width 0.1s; }
+
         .msg { margin-bottom: 15px; padding: 12px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
-        img, video { max-width: 100%; height: auto; border-radius: 8px; margin-top: 10px; display: block; background: #000; }
+        img, video { max-width: 100%; height: auto; border-radius: 8px; margin-top: 10px; display: block; background: #000; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
     </style>
 </head>
 <body>
+
     <div id="status">Connexion en cours... ⚪</div>
     <div id="messages"></div>
+
     <div class="controls">
         <div id="progressContainer"><div id="progressBar"></div></div>
         <div class="input-group">
@@ -43,6 +48,7 @@
 
         socket.onmessage = (event) => {
             const msgData = JSON.parse(event.data);
+            
             if (msgData.type === 'history') {
                 messagesDiv.innerHTML = ''; 
                 msgData.data.forEach(m => addMessageToScreen(m));
@@ -54,23 +60,28 @@
         function addMessageToScreen(data) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg';
+            
             if (data.type === 'text') {
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 const url = data.url.toLowerCase();
-                // DÉTECTION VIDÉO AMÉLIORÉE
-                const isVideo = url.includes('.mp4') || url.includes('.webm') || url.includes('.mov') || url.includes('.avi');
+                // Test sur l'extension du fichier
+                const isVideo = url.endsWith('.mp4') || url.endsWith('.webm') || url.endsWith('.mov');
+                
                 if (isVideo) {
-                    msgDiv.innerHTML = `<video controls src="${data.url}" style="width:100%" onloadeddata="scrollToBottom()"></video>`;
+                    msgDiv.innerHTML = `<video controls src="${data.url}" onloadeddata="scrollToBottom()"></video>`;
                 } else {
-                    msgDiv.innerHTML = `<img src="${data.url}" style="width:100%" onload="scrollToBottom()" onerror="this.parentElement.innerHTML='Erreur de chargement'">`;
+                    // Par défaut, on tente d'afficher une image
+                    msgDiv.innerHTML = `<img src="${data.url}" onload="scrollToBottom()" onerror="this.src='https://placehold.co/400x200?text=Erreur+Lien+Media'">`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
             scrollToBottom();
         }
 
-        function scrollToBottom() { messagesDiv.scrollTop = messagesDiv.scrollHeight; }
+        function scrollToBottom() {
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
 
         function sendMessage() {
             const input = document.getElementById('messageInput');
@@ -83,25 +94,36 @@
         document.getElementById('fileInput').onchange = function() {
             const file = this.files[0];
             if (!file) return;
+
             progressContainer.style.display = "block";
             const formData = new FormData();
             formData.append('file', file);
+
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload', true);
+
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    progressBar.style.width = (e.loaded / e.total) * 100 + '%';
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percent + '%';
                 }
             };
+
             xhr.onload = function() {
                 if (xhr.status === 200) {
                     const res = JSON.parse(xhr.responseText);
+                    // On envoie le type media avec l'URL reçue de Catbox
                     socket.send(JSON.stringify({ type: 'media', url: res.url }));
                 }
-                setTimeout(() => { progressContainer.style.display = "none"; progressBar.style.width = "0%"; }, 1000);
+                setTimeout(() => {
+                    progressContainer.style.display = "none";
+                    progressBar.style.width = "0%";
+                }, 1000);
             };
+
             xhr.send(formData);
         };
+
         document.getElementById('messageInput').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
     </script>
 </body>
