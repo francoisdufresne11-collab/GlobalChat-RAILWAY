@@ -14,6 +14,7 @@ app.use(express.static(__dirname));
 const upload = multer({ dest: 'uploads/' });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
+// --- STOCKAGE DE L'HISTORIQUE ---
 let history = []; 
 
 app.get('/', (req, res) => {
@@ -46,6 +47,7 @@ const server = app.listen(port, '0.0.0.0', () => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
+    // Envoi de l'historique dès la connexion
     ws.send(JSON.stringify({ type: 'history', data: history }));
 
     ws.on('message', (data) => {
