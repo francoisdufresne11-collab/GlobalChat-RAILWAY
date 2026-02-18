@@ -12,7 +12,8 @@
         input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; outline: none; }
         button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
         .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; word-wrap: break-word; }
-        img, video { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; }
+        img { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; border: 1px solid #444; }
+        video { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; background: black; }
     </style>
 </head>
 <body>
@@ -23,12 +24,11 @@
     <div class="controls">
         <input type="text" id="messageInput" placeholder="Écrivez un message...">
         <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
-        <button onclick="document.getElementById('fileInput').click()">📷</button>
+        <button onclick="document.getElementById('fileInput').click()">📷 / 🎥</button>
         <button onclick="sendMessage()">Envoyer</button>
     </div>
 
     <script>
-        // CONNEXION SÉCURISÉE AU SERVEUR RENDER
         const socket = new WebSocket('wss://globalchat-railway.onrender.com');
         const statusDiv = document.getElementById('status');
         const messagesDiv = document.getElementById('messages');
@@ -39,7 +39,7 @@
         };
 
         socket.onclose = () => {
-            statusDiv.innerHTML = "Déconnecté 🔴 (Tentative...)";
+            statusDiv.innerHTML = "Déconnecté 🔴";
             statusDiv.style.color = "#ff4444";
             setTimeout(() => location.reload(), 3000); 
         };
@@ -52,10 +52,14 @@
             if (data.type === 'text') {
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
-                if (data.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                    msgDiv.innerHTML = `<img src="${data.url}">`;
-                } else {
+                const url = data.url.toLowerCase();
+                // DÉTECTION AMÉLIORÉE : Image ou Vidéo ?
+                if (url.match(/\.(jpg|jpeg|png|gif|webp|bmp)$/)) {
+                    msgDiv.innerHTML = `<img src="${data.url}" alt="Image">`;
+                } else if (url.match(/\.(mp4|webm|ogg|mov)$/)) {
                     msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
+                } else {
+                    msgDiv.innerHTML = `<a href="${data.url}" target="_blank" style="color:#00d4ff">Fichier envoyé : ${data.url}</a>`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
