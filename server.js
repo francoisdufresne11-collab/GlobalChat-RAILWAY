@@ -10,24 +10,15 @@ const path = require('path');
 const app = express();
 app.use(cors());
 
-// Sécurité : On définit le chemin absolu vers ton dossier
-const publicPath = path.resolve(__dirname);
-app.use(express.static(publicPath));
+// Sert tous les fichiers du dossier actuel (index.html, etc.)
+app.use(express.static(__dirname));
 
 const upload = multer({ dest: 'uploads/' });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
-// ROUTE PRINCIPALE : C'est ici qu'on règle le "Not Found"
+// ROUTE PRINCIPALE : Envoie ton fichier index.html
 app.get('/', (req, res) => {
-    // On force le nom EXACT que l'on voit sur ton GitHub
-    const htmlFile = path.join(publicPath, 'GlobalChat-RAILWAY.html');
-    
-    if (fs.existsSync(htmlFile)) {
-        res.sendFile(htmlFile);
-    } else {
-        // Ce message s'affichera si le fichier est mal nommé sur GitHub
-        res.status(404).send("Erreur : Le fichier GlobalChat-RAILWAY.html est introuvable sur le serveur.");
-    }
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.post('/upload', upload.single('file'), async (req, res) => {
@@ -46,25 +37,20 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         if (!url.startsWith('http')) url = 'https://' + url;
         res.json({ url: url });
     } catch (error) {
-        console.error("Erreur Upload:", error);
         res.status(500).json({ error: "Erreur serveur" });
     }
 });
 
-// Port dynamique pour Render (obligatoire)
 const port = process.env.PORT || 3000;
 const server = app.listen(port, '0.0.0.0', () => {
-    console.log("🚀 Serveur en ligne sur le port " + port);
+    console.log("🚀 Serveur prêt sur le port " + port);
 });
 
-// WebSocket pour le chat en temps réel
 const wss = new WebSocket.Server({ server });
 wss.on('connection', (ws) => {
     ws.on('message', (data) => {
         wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(data.toString());
-            }
+            if (client.readyState === WebSocket.OPEN) client.send(data.toString());
         });
     });
 });
