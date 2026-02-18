@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Mon Global Chat</title>
+    <style>
+        body { font-family: sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
+        #status { padding: 10px; font-weight: bold; }
+        #messages { flex: 1; width: 95%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #141935; border-radius: 10px; }
+        .controls { width: 95%; max-width: 800px; display: flex; gap: 10px; padding: 20px; background: #141935; border-radius: 10px; margin-bottom: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; }
+        button { padding: 10px 20px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; }
+        .msg { margin-bottom: 15px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #ff0080; }
+        .media { max-width: 100%; max-height: 400px; border-radius: 8px; margin-top: 10px; display: block; border: 1px solid #00d4ff; }
+    </style>
+</head>
+<body>
+    <div id="status">🔴 Déconnecté</div>
+    <div id="messages"></div>
+    <div class="controls">
+        <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
+        <button onclick="document.getElementById('fileInput').click()">📎</button>
+        <input type="text" id="msgInput" placeholder="Message...">
+        <button onclick="send()">ENVOYER</button>
+    </div>
+
+<script>
+    let ws;
+    let user = "User_" + Math.floor(Math.random() * 1000);
+    const messagesEl = document.getElementById('messages');
+    const statusEl = document.getElementById('status');
+
+    function connect() {
+        // Détection automatique de l'adresse (Internet ou Local)
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host || '127.0.0.1:3000';
+        ws = new WebSocket(`${protocol}//${host}`);
+
+        ws.onopen = () => { statusEl.textContent = "🟢 Connecté"; statusEl.style.color = "#00ff88"; };
+        ws.onmessage = (e) => {
+            const data = JSON.parse(e.data);
+            const div = document.createElement('div');
+            div.className = 'msg';
+            div.innerHTML = `<strong>${data.user}</strong>: ${data.text || ''}`;
+            if (data.type === 'image') div.innerHTML += `<br><img src="${data.url}" class="media" referrerpolicy="no-referrer">`;
+            if (data.type === 'video') div.innerHTML += `<br><video src="${data.url}" class="media" controls referrerpolicy="no-referrer"></video>`;
+            messagesEl.appendChild(div);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        };
+        ws.onclose = () => { setTimeout(connect, 2000); };
+    }
+
+    async function send() {
+        const input = document.getElementById('msgInput');
+        const fileInput = document.getElementById('fileInput');
+        const file = fileInput.files[0];
+        if (file) {
+            const formData = new FormData();
+            formData.append('file', file);
+            try {
+                // Utilise l'adresse actuelle pour l'upload
+                const res = await fetch(`${window.location.origin}/upload`, { method: 'POST', body: formData });
+                const data = await res.json();
+                const type = file.type.startsWith('video/') ? 'video' : 'image';
+                ws.send(JSON.stringify({ type, user, url: data.url, text: input.value }));
+                fileInput.value = '';
+            } catch (err) { alert("Erreur d'envoi."); }
+        } else if (input.value.trim()) {
+            ws.send(JSON.stringify({ type: 'message', user, text: input.value }));
+        }
+        input.value = '';
+    }
+    connect();
+</script>
+</body>
+</html>
