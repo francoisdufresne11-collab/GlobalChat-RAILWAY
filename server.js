@@ -14,6 +14,9 @@ app.use(express.static(__dirname));
 const upload = multer({ dest: 'uploads/' });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
+// --- SYSTÈME D'HISTORIQUE ---
+let history = []; 
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
@@ -42,10 +45,23 @@ const server = app.listen(port, '0.0.0.0', () => {
 });
 
 const wss = new WebSocket.Server({ server });
+
 wss.on('connection', (ws) => {
+    // ENVOI DE L'HISTORIQUE au nouveau connecté
+    ws.send(JSON.stringify({ type: 'history', data: history }));
+
     ws.on('message', (data) => {
+        const message = JSON.parse(data.toString());
+        
+        // Ajouter au début de l'historique et limiter à 50 messages
+        history.push(message);
+        if (history.length > 50) history.shift();
+
+        // Diffuser à tout le monde
         wss.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) client.send(data.toString());
+            if (client.readyState === WebSocket.OPEN) {
+                client.send(JSON.stringify(message));
+            }
         });
     });
 });
