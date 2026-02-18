@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global Chat - Historique & Progress</title>
+    <title>Global Chat Live</title>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
         #status { padding: 10px; font-weight: bold; }
@@ -14,11 +14,11 @@
         button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
         
         /* Barre de progression */
-        #progressContainer { width: 100%; background: #1e2542; border-radius: 5px; display: none; height: 10px; overflow: hidden; }
-        #progressBar { width: 0%; height: 100%; background: #00ff00; transition: width 0.2s; }
+        #progressContainer { width: 100%; background: #1e2542; border-radius: 5px; display: none; height: 8px; overflow: hidden; }
+        #progressBar { width: 0%; height: 100%; background: #00ff00; transition: width 0.1s; }
 
-        .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
-        img, video { max-width: 100%; height: auto; border-radius: 5px; margin-top: 10px; display: block; }
+        .msg { margin-bottom: 12px; padding: 12px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; min-height: 20px; }
+        img, video { max-width: 100%; height: auto; border-radius: 5px; margin-top: 10px; display: block; background: #000; }
     </style>
 </head>
 <body>
@@ -29,7 +29,7 @@
     <div class="controls">
         <div id="progressContainer"><div id="progressBar"></div></div>
         <div class="input-group">
-            <input type="text" id="messageInput" placeholder="Message...">
+            <input type="text" id="messageInput" placeholder="Écrivez ici...">
             <input type="file" id="fileInput" style="display:none" accept="image/*,video/*">
             <button onclick="document.getElementById('fileInput').click()">📷/🎥</button>
             <button onclick="sendMessage()">Envoyer</button>
@@ -49,15 +49,15 @@
         socket.onmessage = (event) => {
             const msgData = JSON.parse(event.data);
             
-            // Si on reçoit l'historique
             if (msgData.type === 'history') {
-                msgData.data.forEach(m => displayMessage(m));
+                messagesDiv.innerHTML = ''; // Vide pour éviter les doublons
+                msgData.data.forEach(m => addMessageToScreen(m));
             } else {
-                displayMessage(msgData);
+                addMessageToScreen(msgData);
             }
         };
 
-        function displayMessage(data) {
+        function addMessageToScreen(data) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'msg';
             
@@ -65,13 +65,18 @@
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 const url = data.url.toLowerCase();
+                // Vérification robuste des extensions
                 if (url.match(/\.(jpg|jpeg|png|gif|webp)$/)) {
-                    msgDiv.innerHTML = `<img src="${data.url}">`;
+                    msgDiv.innerHTML = `<img src="${data.url}" onload="scrollToBottom()">`;
                 } else if (url.match(/\.(mp4|webm|mov)$/)) {
-                    msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
+                    msgDiv.innerHTML = `<video controls src="${data.url}" onloadedmetadata="scrollToBottom()"></video>`;
                 }
             }
             messagesDiv.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         }
 
@@ -94,7 +99,6 @@
             const xhr = new XMLHttpRequest();
             xhr.open('POST', '/upload', true);
 
-            // MISE À JOUR BARRE DE PROGRESSION
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
                     const percent = (e.loaded / e.total) * 100;
@@ -115,6 +119,8 @@
 
             xhr.send(formData);
         };
+
+        document.getElementById('messageInput').onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
     </script>
 </body>
 </html>
