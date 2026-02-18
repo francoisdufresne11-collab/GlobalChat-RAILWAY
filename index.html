@@ -2,21 +2,22 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Global Chat Live</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Chat Live - Render</title>
     <style>
-        body { font-family: sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
-        #status { padding: 15px; font-weight: bold; }
-        #messages { flex: 1; width: 90%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #161b33; border-radius: 10px; }
-        .controls { width: 90%; max-width: 800px; display: flex; gap: 10px; padding: 20px; background: #141935; border-radius: 10px; margin-bottom: 10px; }
-        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; }
-        button { padding: 10px 20px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; }
-        .msg { margin-bottom: 15px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; }
-        img, video { max-width: 100%; border-radius: 5px; margin-top: 10px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #0a0e27; color: white; display: flex; flex-direction: column; align-items: center; height: 100vh; margin: 0; }
+        #status { padding: 10px; font-weight: bold; font-size: 1.1em; }
+        #messages { flex: 1; width: 90%; max-width: 800px; border: 1px solid #00d4ff; overflow-y: auto; margin: 10px; padding: 15px; background: #161b33; border-radius: 8px; }
+        .controls { width: 90%; max-width: 800px; display: flex; gap: 10px; padding: 15px; background: #141935; border-radius: 8px; margin-bottom: 10px; }
+        input[type="text"] { flex: 1; padding: 12px; border-radius: 5px; border: none; background: #1e2542; color: white; outline: none; }
+        button { padding: 10px 15px; cursor: pointer; background: #00d4ff; border: none; border-radius: 5px; font-weight: bold; color: #0a0e27; }
+        .msg { margin-bottom: 12px; padding: 10px; background: #1e2542; border-radius: 8px; border-left: 4px solid #00d4ff; word-wrap: break-word; }
+        img, video { max-width: 100%; border-radius: 5px; margin-top: 10px; display: block; }
     </style>
 </head>
 <body>
 
-    <div id="status">Connexion en cours... ⚪</div>
+    <div id="status">Initialisation... ⚪</div>
     <div id="messages"></div>
 
     <div class="controls">
@@ -27,7 +28,7 @@
     </div>
 
     <script>
-        // ADRESSE DE TON SERVEUR RENDER (wss:// est obligatoire)
+        // CONNEXION SÉCURISÉE AU SERVEUR RENDER
         const socket = new WebSocket('wss://globalchat-railway.onrender.com');
         const statusDiv = document.getElementById('status');
         const messagesDiv = document.getElementById('messages');
@@ -38,8 +39,8 @@
         };
 
         socket.onclose = () => {
-            statusDiv.innerHTML = "Déconnecté 🔴 (Tentative de reconnexion...)";
-            statusDiv.style.color = "#ff0000";
+            statusDiv.innerHTML = "Déconnecté 🔴 (Tentative...)";
+            statusDiv.style.color = "#ff4444";
             setTimeout(() => location.reload(), 3000); 
         };
 
@@ -52,7 +53,7 @@
                 msgDiv.textContent = data.text;
             } else if (data.type === 'media') {
                 if (data.url.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-                    msgDiv.innerHTML = `<img src="${data.url}" alt="Image">`;
+                    msgDiv.innerHTML = `<img src="${data.url}">`;
                 } else {
                     msgDiv.innerHTML = `<video controls src="${data.url}"></video>`;
                 }
@@ -72,7 +73,7 @@
         document.getElementById('fileInput').onchange = async function() {
             const file = this.files[0];
             if (!file) return;
-            statusDiv.innerHTML = "Envoi... ⏳";
+            statusDiv.innerHTML = "Envoi en cours... ⏳";
             const formData = new FormData();
             formData.append('file', file);
             try {
@@ -80,10 +81,10 @@
                 const json = await res.json();
                 if (json.url) {
                     socket.send(JSON.stringify({ type: 'media', url: json.url }));
-                    statusDiv.innerHTML = "Connecté 🟢";
                 }
+                statusDiv.innerHTML = "Connecté 🟢";
             } catch (e) {
-                statusDiv.innerHTML = "Erreur d'envoi ❌";
+                statusDiv.innerHTML = "Erreur upload ❌";
             }
         };
 
