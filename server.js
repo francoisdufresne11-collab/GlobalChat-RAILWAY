@@ -14,7 +14,7 @@ app.use(express.static(__dirname));
 const upload = multer({ dest: 'uploads/' });
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 
-// --- SYSTÈME D'HISTORIQUE ---
+// --- STOCKAGE DE L'HISTORIQUE ---
 let history = []; 
 
 app.get('/', (req, res) => {
@@ -47,17 +47,19 @@ const server = app.listen(port, '0.0.0.0', () => {
 const wss = new WebSocket.Server({ server });
 
 wss.on('connection', (ws) => {
-    // ENVOI DE L'HISTORIQUE au nouveau connecté
-    ws.send(JSON.stringify({ type: 'history', data: history }));
+    // On envoie l'historique au nouveau client dès qu'il se connecte
+    if (history.length > 0) {
+        ws.send(JSON.stringify({ type: 'history', data: history }));
+    }
 
     ws.on('message', (data) => {
         const message = JSON.parse(data.toString());
         
-        // Ajouter au début de l'historique et limiter à 50 messages
+        // On ajoute le message à l'historique (max 50)
         history.push(message);
         if (history.length > 50) history.shift();
 
-        // Diffuser à tout le monde
+        // On envoie à tout le monde
         wss.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 client.send(JSON.stringify(message));
